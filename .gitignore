@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+*.log
+.social-archive-tmp/
+credentials*.json
+token*.json

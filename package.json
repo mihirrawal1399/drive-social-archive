@@ -1,0 +1,22 @@
+{
+  "name": "social-archive",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "archive": "dist/cli.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "tsx src/cli.ts",
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "googleapis": "^150.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": { "node": ">=20" }
+}
