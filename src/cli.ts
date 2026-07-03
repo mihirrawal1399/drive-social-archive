@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { loadDotEnv } from "./env.js";
 import { loadConfig } from "./config.js";
 import { DriveStore } from "./drive.js";
 import { ArchiveService } from "./archive.js";
 import { YtDlpAdapter } from "./platforms/ytdlp.js";
 import type { Platform } from "./types.js";
+
+loadDotEnv();
 
 const program = new Command().name("archive").description("Back up social content to Google Drive").version("1.0.0");
 

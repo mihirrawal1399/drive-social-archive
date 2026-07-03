@@ -1,5 +1,5 @@
 {
-  "name": "social-archive",
+  "name": "drive-social-archive",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "tsx src/cli.ts",
-    "test": "node --import tsx --test test/**/*.test.ts"
+    "test": "node --import tsx --test test/archive.test.ts test/env.test.ts"
   },
   "dependencies": {
     "commander": "^14.0.0",

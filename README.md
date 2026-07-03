@@ -7,9 +7,11 @@ A personal, database-free CLI that archives Instagram and YouTube content into G
 - Node.js 20+
 - [`yt-dlp`](https://github.com/yt-dlp/yt-dlp#installation) available on `PATH`
 - A Google Cloud project with the Drive API enabled
-- A Google service-account key (recommended), or Application Default Credentials
+- Application Default Credentials from `gcloud auth application-default login`, or a Google service-account key
 
-For a service account, create or choose the destination Drive folder, share it with the key's `client_email`, and put that folder ID in `SOCIAL_ARCHIVE_ROOT_ID`. A service account cannot use a human user's My Drive unless a folder is explicitly shared with it.
+For personal Drive backups, use `gcloud auth application-default login` and sign in with the Google account whose Drive quota should store the archive. The Google Cloud project or OAuth client can be owned by a different account; quota for archived files comes from the account that authorizes Drive access.
+
+For a service account, create or choose the destination Drive folder, share it with the key's `client_email`, set `GOOGLE_APPLICATION_CREDENTIALS` to the service-account JSON key, and put that folder ID in `SOCIAL_ARCHIVE_ROOT_ID`. A service account cannot use a human user's My Drive unless a folder is explicitly shared with it.
 
 ## Setup
 
@@ -18,12 +20,12 @@ npm install
 Copy-Item .env.example .env
 ```
 
-Edit `.env`, then load it into your shell (the CLI intentionally does not add a dotenv dependency):
+Edit `.env`. The CLI automatically loads `.env` from the current working directory before running commands.
+
+For personal OAuth, leave `GOOGLE_APPLICATION_CREDENTIALS` blank and authorize with the account that should own the Drive archive:
 
 ```powershell
-Get-Content .env | ForEach-Object {
-  if ($_ -match '^[^#].*=') { $name, $value = $_ -split '=', 2; Set-Item "Env:$name" $value }
-}
+gcloud auth application-default login --client-id-file="E:\Github\drive-social-archive\client_secret_....apps.googleusercontent.com.json" --scopes="https://www.googleapis.com/auth/drive"
 npm run build
 npm link
 ```

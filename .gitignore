@@ -4,4 +4,6 @@ dist/
 *.log
 .social-archive-tmp/
 credentials*.json
+client_secret*.json
+service-account*.json
 token*.json
