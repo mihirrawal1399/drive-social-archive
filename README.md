@@ -25,7 +25,7 @@ Edit `.env`. The CLI automatically loads `.env` from the current working directo
 For personal OAuth, leave `GOOGLE_APPLICATION_CREDENTIALS` blank and authorize with the account that should own the Drive archive:
 
 ```powershell
-gcloud auth application-default login --client-id-file="E:\Github\drive-social-archive\client_secret_....apps.googleusercontent.com.json" --scopes="https://www.googleapis.com/auth/drive"
+gcloud auth application-default login --client-id-file="E:\Github\drive-social-archive\client_secret_....apps.googleusercontent.com.json" --scopes="https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive"
 npm run build
 npm link
 ```
