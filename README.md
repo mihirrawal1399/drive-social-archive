@@ -1,50 +1,170 @@
-# Social Archive
+# Drive Social Archive
 
-A personal, database-free CLI that archives Instagram and YouTube content into Google Drive. Drive contains the media, metadata, indexes, and sync checkpoints needed to recover the complete archive.
+A personal, database-free CLI for archiving Instagram and YouTube content into Google Drive.
+
+The archive lives in Drive, not in a local database. Media, metadata, duplicate-detection indexes, and sync checkpoints are all stored under a Drive folder named `SocialArchive` by default.
+
+## What works today
+
+- Archives YouTube channel tabs, shorts tabs, playlists, and individual videos using `yt-dlp`.
+- Archives Instagram profiles, posts, reels, and mixed carousel posts using `yt-dlp` plus a `gallery-dl` fallback.
+- Stores all archived media and metadata in Google Drive.
+- Skips items that were already archived.
+- Keeps sync checkpoints in Drive.
+- Loads `.env` automatically from the current working directory.
 
 ## Prerequisites
 
 - Node.js 20+
-- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp#installation) available on `PATH`
-- Optional but recommended for Instagram profile crawling: [`gallery-dl`](https://github.com/mikf/gallery-dl)
-- A Google Cloud project with the Drive API enabled
-- Application Default Credentials from `gcloud auth application-default login`, or a Google service-account key
+- Google Cloud CLI, `gcloud`
+- Google Drive API enabled in a Google Cloud project
+- An OAuth client JSON file, usually named like `client_secret_....apps.googleusercontent.com.json`
+- `yt-dlp`
+- `gallery-dl`, recommended for Instagram profile crawling and carousel fallback
+- Optional Netscape-format cookies file for Instagram/YouTube authenticated access
 
-For personal Drive backups, use `gcloud auth application-default login` and sign in with the Google account whose Drive quota should store the archive. The Google Cloud project or OAuth client can be owned by a different account; quota for archived files comes from the account that authorizes Drive access.
+On Windows, this project has been tested with:
 
-For a service account, create or choose the destination Drive folder, share it with the key's `client_email`, set `GOOGLE_APPLICATION_CREDENTIALS` to the service-account JSON key, and put that folder ID in `SOCIAL_ARCHIVE_ROOT_ID`. A service account cannot use a human user's My Drive unless a folder is explicitly shared with it.
+```bat
+npm install
+python -m pip install --user gallery-dl
+winget install --id yt-dlp.yt-dlp -e
+```
+
+If `gallery-dl` installs outside PATH, set `GALLERYDL_PATH` in `.env`.
+
+## Google Drive account selection
+
+For normal personal backups, leave this blank in `.env`:
+
+```env
+GOOGLE_APPLICATION_CREDENTIALS=
+```
+
+Then authenticate Application Default Credentials with the Google account whose Drive quota should store the archive:
+
+```bat
+"C:\Users\rawal\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd" auth application-default login --client-id-file="E:\Github\drive-social-archive\client_secret_....apps.googleusercontent.com.json" --scopes="https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive"
+```
+
+The Google Cloud project or OAuth client can be owned by one account, while the Drive archive can be stored in another account. The Drive quota is used from the account selected in the browser during `gcloud auth application-default login`.
+
+Use `GOOGLE_APPLICATION_CREDENTIALS` only for service-account mode. Do not point it at an OAuth `client_secret_...json` file.
 
 ## Setup
 
-```powershell
+From the repo:
+
+```bat
+cd /d E:\Github\drive-social-archive
 npm install
-Copy-Item .env.example .env
+copy .env.example .env
 ```
 
-Edit `.env`. The CLI automatically loads `.env` from the current working directory before running commands.
+Edit `.env`:
 
-For personal OAuth, leave `GOOGLE_APPLICATION_CREDENTIALS` blank and authorize with the account that should own the Drive archive:
+```env
+GOOGLE_APPLICATION_CREDENTIALS=
+SOCIAL_ARCHIVE_ROOT_ID=
 
-```powershell
-gcloud auth application-default login --client-id-file="E:\Github\drive-social-archive\client_secret_....apps.googleusercontent.com.json" --scopes="https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/drive"
-npm run build
-npm link
+INSTAGRAM_SOURCE_URLS=https://www.instagram.com/your_username/
+YOUTUBE_SOURCE_URLS=https://www.youtube.com/@your_channel/shorts
+
+INSTAGRAM_COOKIES_FILE=C:\Users\rawal\Downloads\www.instagram.com_cookies_your_username.txt
+YOUTUBE_COOKIES_FILE=
+
+YTDLP_PATH=yt-dlp
+GALLERYDL_PATH=C:\Users\rawal\AppData\Roaming\Python\Python39\Scripts\gallery-dl.exe
+SOCIAL_ARCHIVE_TMP_DIR=
 ```
 
-The configured source URL can be an Instagram profile, individual post/reel, YouTube channel tab, playlist, or individual video. Use a Netscape-format cookies file for private content or when a platform requires login. Keep that file and Google credentials outside this repository.
+Notes:
+
+- `SOCIAL_ARCHIVE_ROOT_ID=` blank means the CLI creates/uses `SocialArchive` in the authenticated account's My Drive.
+- `INSTAGRAM_COOKIES_FILE` should point to a Netscape-format cookies export.
+- Keep `.env`, cookies, OAuth client secrets, and service-account keys out of git.
 
 ## Commands
 
-```powershell
-archive sync instagram
-archive sync youtube
-archive sync all
+Run through npm:
+
+```bat
+npm start -- stats
+npm start -- sync youtube
+npm start -- sync instagram
+npm start -- sync all
+npm start -- verify
+```
+
+Or build and link the CLI:
+
+```bat
+npm run build
+npm link
 archive stats
+archive sync all
 archive verify
 ```
 
-Each item is written as `Instagram/reel_ID` or `YouTube/video_ID`, containing `video.*`, optional `thumbnail.jpg`, and `post.json`. `indexes/*.json` provides idempotent duplicate detection; `sync-state.json` advances only after a failure-free platform run.
+## Testing
 
-## Recovery and caveats
+```bat
+npm run build
+npm test
+```
 
-The Drive archive is self-describing and has no required local state. To move machines, reinstall this CLI and point it at the same root folder ID. `verify` checks indexed item folders. Platform extraction is necessarily subject to platform access and `yt-dlp` support; cookies may expire. Already archived files remain independent of both.
+## Drive layout
+
+Default root folder:
+
+```text
+SocialArchive/
+  Instagram/
+    reel_<id>/
+      video.mp4
+      thumbnail.jpg
+      post.json
+    post_<id>/
+      media_1.mp4
+      media_2.jpg
+      post.json
+  YouTube/
+    short_<id>/
+      video.mp4
+      thumbnail.jpg
+      post.json
+    video_<id>/
+      video.mp4
+      thumbnail.jpg
+      post.json
+  indexes/
+    instagram.json
+    youtube.json
+  sync-state.json
+```
+
+`indexes/*.json` prevents duplicate uploads. `sync-state.json` advances only after a platform sync completes with zero failures.
+
+## Instagram cookies
+
+Instagram often requires login cookies. Export cookies in Netscape/cookies.txt format using a trusted local cookie exporter extension, then set:
+
+```env
+INSTAGRAM_COOKIES_FILE=C:\path\to\instagram-cookies.txt
+```
+
+Cookies are login tokens. Store them outside the repo when possible.
+
+## Recovery
+
+The Drive archive is self-describing. To move machines:
+
+1. Clone this repo.
+2. Install prerequisites.
+3. Authenticate Google Drive.
+4. Set `SOCIAL_ARCHIVE_ROOT_ID` to the existing archive folder ID, or leave it blank if the same authenticated account already has the `SocialArchive` folder.
+5. Run `npm start -- verify`.
+
+## Technical details
+
+See [TECHNICAL_FLOW.md](TECHNICAL_FLOW.md) for the architecture, data model, sync flow, auth behavior, and external-tool fallback logic.
