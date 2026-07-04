@@ -27,8 +27,8 @@ export class ArchiveService {
         const folderName = `${content.type}_${content.id}`;
         const folder = await this.drive.createFolder(`${platformFolder(platform)}/${folderName}`);
         const archivedMediaFiles: string[] = [];
-        for (const file of content.mediaFiles) {
-          const archivedName = "video" + path.extname(file);
+        for (const [index, file] of content.mediaFiles.entries()) {
+          const archivedName = content.mediaFiles.length === 1 ? "video" + path.extname(file) : `media_${index + 1}${path.extname(file)}`;
           await this.drive.uploadFile(folder, path.join(tmp, file), archivedName);
           archivedMediaFiles.push(archivedName);
         }

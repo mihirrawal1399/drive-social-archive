@@ -9,6 +9,14 @@ interface YtInfo {
   tags?: string[]; entries?: YtInfo[];
 }
 
+interface GalleryDlPost {
+  date?: string;
+  post_date?: string;
+  post_shortcode?: string;
+  post_id?: string;
+  post_url?: string;
+}
+
 function run(bin: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { windowsHide: true });
@@ -31,15 +39,65 @@ function hashtags(info: YtInfo): string[] {
   return [...new Set([...(info.tags ?? []), ...[...text.matchAll(/#([\p{L}\p{N}_]+)/gu)].map(m => m[1])])];
 }
 
+const mediaPattern = /^media(?:_\d+)?\.(mp4|webm|mkv|mov|jpg|jpeg|png|webp)$/i;
+
 export class YtDlpAdapter implements PlatformAdapter {
-  constructor(public platform: Platform, private bin: string, private sources: string[], private cookies?: string) {}
+  constructor(public platform: Platform, private bin: string, private sources: string[], private cookies?: string, private galleryDl = "gallery-dl") {}
   private args(): string[] { return this.cookies ? ["--cookies", this.cookies] : []; }
+
+  private galleryArgs(source: string): string[] {
+    const url = /^https:\/\/www\.instagram\.com\/[^/]+\/?$/.test(source)
+      ? `${source.replace(/\/$/, "")}/posts/`
+      : source;
+    return [...this.args(), "--simulate", "--dump-json", url];
+  }
+
+  private async discoverInstagramWithGalleryDl(source: string, since?: string): Promise<DiscoveredContent[]> {
+    const output = await run(this.galleryDl, this.galleryArgs(source));
+    const events = JSON.parse(output) as unknown[];
+    const discovered = new Map<string, DiscoveredContent>();
+    for (const event of events) {
+      if (!Array.isArray(event) || event[0] !== 2 || typeof event[1] !== "object" || event[1] === null) continue;
+      const post = event[1] as GalleryDlPost;
+      const id = post.post_shortcode ?? post.post_id;
+      const url = post.post_url;
+      if (!id || !url) continue;
+      const publishedAt = post.post_date || post.date ? new Date(post.post_date ?? post.date!).toISOString() : new Date(0).toISOString();
+      if (since && publishedAt !== new Date(0).toISOString() && publishedAt <= since) continue;
+      discovered.set(id, { id, url, publishedAt });
+    }
+    return [...discovered.values()];
+  }
+
+  private async downloadInstagramWithGalleryDl(item: DiscoveredContent, destination: string): Promise<ArchivedContent> {
+    await run(this.galleryDl, [...this.args(), "--directory", destination, "--filename", "media_{num}.{extension}", item.url]);
+    const files = (await fs.readdir(destination)).filter(file => mediaPattern.test(file)).sort();
+    if (!files.length) throw new Error(`gallery-dl did not download media for ${item.id}`);
+    return {
+      id: item.id,
+      platform: "instagram",
+      type: /\/reel\//.test(item.url) ? "reel" : "post",
+      hashtags: [],
+      postUrl: item.url,
+      publishedAt: item.publishedAt ?? new Date(0).toISOString(),
+      archivedAt: new Date().toISOString(),
+      sourceQuality: "downloaded",
+      mediaFiles: files
+    };
+  }
 
   async discover(since?: string): Promise<DiscoveredContent[]> {
     if (!this.sources.length) throw new Error(`No ${this.platform} sources configured`);
     const all = new Map<string, DiscoveredContent>();
     for (const source of this.sources) {
-      const output = await run(this.bin, [...this.args(), "--flat-playlist", "--dump-single-json", "--no-warnings", source]);
+      let output: string;
+      try {
+        output = await run(this.bin, [...this.args(), "--flat-playlist", "--dump-single-json", "--no-warnings", source]);
+      } catch (error) {
+        if (this.platform !== "instagram") throw error;
+        for (const item of await this.discoverInstagramWithGalleryDl(source, since)) all.set(item.id, item);
+        continue;
+      }
       const root = JSON.parse(output) as YtInfo;
       for (const item of root.entries ?? [root]) {
         const publishedAt = date(item);
@@ -53,7 +111,13 @@ export class YtDlpAdapter implements PlatformAdapter {
 
   async download(item: DiscoveredContent, destination: string): Promise<ArchivedContent> {
     await fs.mkdir(destination, { recursive: true });
-    const output = await run(this.bin, [...this.args(), "--no-warnings", "--write-thumbnail", "--convert-thumbnails", "jpg", "--merge-output-format", "mp4", "-o", path.join(destination, "media.%(ext)s"), "--print", "after_move:%()j", item.url]);
+    let output: string;
+    try {
+      output = await run(this.bin, [...this.args(), "--no-warnings", "--write-thumbnail", "--convert-thumbnails", "jpg", "--merge-output-format", "mp4", "-o", path.join(destination, "media.%(ext)s"), "--print", "after_move:%()j", item.url]);
+    } catch (error) {
+      if (this.platform === "instagram") return this.downloadInstagramWithGalleryDl(item, destination);
+      throw error;
+    }
     const info = JSON.parse(output.trim().split(/\r?\n/).at(-1)!) as YtInfo;
     const files = await fs.readdir(destination);
     const media = files.find(f => /^media\.(mp4|webm|mkv|mov)$/i.test(f));

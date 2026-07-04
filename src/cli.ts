@@ -19,7 +19,7 @@ async function service() {
 
 async function syncOne(platform: Platform) {
   const { config, archive } = await service();
-  const adapter = new YtDlpAdapter(platform, config.ytDlpPath, config.sources[platform], config.cookies[platform]);
+  const adapter = new YtDlpAdapter(platform, config.ytDlpPath, config.sources[platform], config.cookies[platform], config.galleryDlPath);
   const result = await archive.sync(adapter);
   console.log(`${platform}: ${result.archived} archived, ${result.skipped} skipped, ${result.failed} failed (${result.discovered} discovered)`);
   if (result.failed) process.exitCode = 1;

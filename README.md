@@ -6,6 +6,7 @@ A personal, database-free CLI that archives Instagram and YouTube content into G
 
 - Node.js 20+
 - [`yt-dlp`](https://github.com/yt-dlp/yt-dlp#installation) available on `PATH`
+- Optional but recommended for Instagram profile crawling: [`gallery-dl`](https://github.com/mikf/gallery-dl)
 - A Google Cloud project with the Drive API enabled
 - Application Default Credentials from `gcloud auth application-default login`, or a Google service-account key
 
