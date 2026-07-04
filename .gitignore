@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 *.log
+*cookies*.txt
 .social-archive-tmp/
 credentials*.json
 client_secret*.json
